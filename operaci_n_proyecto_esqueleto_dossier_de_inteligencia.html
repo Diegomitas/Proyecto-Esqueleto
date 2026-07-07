@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Operación: Proyecto Esqueleto // Archivo Maestro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Special+Elite&display=swap');
+        body { background: radial-gradient(circle at center, #2e2621 0%, #1a1512 100%); color: #d1c1a9; font-family: 'Special Elite', cursive; }
+        .dossier-panel { background: #2a221d; border: 4px solid #4a3b30; box-shadow: 0 0 50px rgba(0,0,0,0.8); }
+        .bone-part { fill: #cbbba1; stroke: #3a2b22; stroke-width: 0.8; opacity: 0.1; transition: all 0.8s ease; }
+        .bone-part.revealed { opacity: 1; fill: #e8dcc8; filter: drop-shadow(0 0 8px rgba(255,255,255,0.3)); }
+        .btn-spy { background: #4a3b30; color: #f1e0c5; border: 2px solid #6b5546; transition: all 0.3s; padding: 0.75rem; }
+        .btn-spy:hover:not(:disabled) { background: #5d4a3e; transform: translateY(-2px); }
+        .btn-spy.selected { background: #8b7355; border-color: #d1c1a9; }
+        .btn-spy:disabled { opacity: 0.3; cursor: not-allowed; }
+        .da-vinci-note { border: 1px dashed #7a604e; background: rgba(59, 44, 33, 0.4); padding: 1rem; }
+        .modal { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 100; background: #2a221d; border: 2px solid #d1c1a9; padding: 2rem; box-shadow: 0 0 20px black; width: 90%; max-width: 500px; }
+        .cert-border { border: 10px double #d1c1a9; padding: 2rem; }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <!-- Botón de Música (siempre visible arriba) -->
+    <button id="music-toggle" onclick="toggleMusic()" class="absolute top-4 right-4 text-[10px] uppercase tracking-widest bg-[#2a221d] border border-[#4a3b30] px-3 py-1 opacity-60 hover:opacity-100">
+        Música: OFF
+    </button>
+
+    <div id="app" class="dossier-panel w-full max-w-5xl rounded-lg p-8 relative">
+        <div class="absolute top-4 left-4 text-xs tracking-widest uppercase opacity-60 font-bold italic">Archivo Maestro // Proyecto Esqueleto</div>
+        
+        <!-- Screen: Start -->
+        <div id="start-screen" class="text-center py-10">
+            <h1 class="text-5xl font-bold mb-4 uppercase text-[#e5d3b3]" style="font-family: 'Cinzel', serif;">Proyecto Esqueleto</h1>
+            <div class="da-vinci-note max-w-md mx-auto mb-10 italic text-[#e5d3b3]">"La simplicidad es la máxima sofisticación."</div>
+            <div class="grid md:grid-cols-3 gap-6 max-w-3xl mx-auto mb-10 text-left">
+                <input type="text" id="agent-name" class="col-span-3 bg-[#1e1713] border border-[#5d4a3e] p-3 text-slate-100" placeholder="Alias del Agente">
+                <div class="space-y-2">
+                    <label class="text-xs uppercase opacity-70">Dificultad</label>
+                    <div id="diff-select" class="flex flex-col gap-2">
+                        <button class="btn-spy selected" onclick="updateSel('diff', 'Fácil', this)">Fácil (5 vidas)</button>
+                        <button class="btn-spy" onclick="updateSel('diff', 'Medio', this)">Medio (3 vidas)</button>
+                        <button class="btn-spy" onclick="updateSel('diff', 'Difícil', this)">Difícil (1 vida)</button>
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    <label class="text-xs uppercase opacity-70">Operativo</label>
+                    <div id="char-select" class="flex flex-col gap-2">
+                        <button class="btn-spy selected" onclick="updateSel('char', 'Alfa', this)">Alfa (Observador)</button>
+                        <button class="btn-spy" onclick="updateSel('char', 'Bravo', this)">Bravo (Resistente)</button>
+                        <button class="btn-spy" onclick="updateSel('char', 'Charlie', this)">Charlie (Erudito)</button>
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    <label class="text-xs uppercase opacity-70">Habilidad</label>
+                    <div id="ability-select" class="flex flex-col gap-2">
+                        <button class="btn-spy selected" onclick="updateSel('ability', 'Analista', this)">Analista (+Lupas)</button>
+                        <button class="btn-spy" onclick="updateSel('ability', 'Veterano', this)">Veterano (+Vida)</button>
+                        <button class="btn-spy" onclick="updateSel('ability', 'Erudito', this)">Erudito (Pista Libre)</button>
+                    </div>
+                </div>
+            </div>
+            <button onclick="startGame()" class="px-12 py-4 btn-spy uppercase tracking-widest font-bold">Iniciar Misión</button>
+        </div>
+
+        <!-- Screen: Level Selection -->
+        <div id="level-screen" class="hidden text-center py-10">
+            <h2 class="text-3xl mb-8 uppercase" style="font-family: 'Cinzel', serif;">Selección de Expediente</h2>
+            <div id="level-grid" class="grid grid-cols-5 gap-4 max-w-2xl mx-auto"></div>
+        </div>
+
+        <!-- Screen: Game -->
+        <div id="game-screen" class="hidden grid md:grid-cols-2 gap-12">
+            <div class="flex flex-col items-center justify-center p-6 bg-[#1e1713] rounded border border-[#5d4a3e]">
+                <svg viewBox="0 0 200 400" class="w-64 h-auto">
+                    <path id="path-skull" class="bone-part" d="M100 20 c-20 0 -35 15 -35 35 s15 35 35 35 35 -15 35 -35 -15 -35 -35 -35z" />
+                    <path id="path-clavicle" class="bone-part" d="M70 95 l-10 5 h80 l-10 -5z" />
+                    <path id="path-ribs" class="bone-part" d="M75 105 h50 v60 h-50 z" />
+                    <path id="path-spine" class="bone-part" d="M98 100 v110 h4 v-110 z" />
+                    <path id="path-pelvis" class="bone-part" d="M70 210 h60 v30 c0 10 -60 10 -60 0z" />
+                </svg>
+            </div>
+            <div class="flex flex-col justify-center">
+                <div class="flex justify-between mb-4">
+                    <div id="status" class="text-sm tracking-wide text-[#b8a991]"></div>
+                    <div id="lupas" class="text-blue-300 font-bold uppercase tracking-widest">Lupas: 0</div>
+                </div>
+                <div id="quote-box" class="da-vinci-note text-sm text-[#e5d3b3] mb-4 italic"></div>
+                <h3 id="question-text" class="text-xl mb-6 font-bold"></h3>
+                <div id="options-grid" class="grid grid-cols-1 gap-3"></div>
+                <button id="btn-hint" class="mt-6 text-xs underline uppercase opacity-60 hover:opacity-100 transition">Solicitar Pista</button>
+            </div>
+        </div>
+
+        <!-- Screen: Certificate -->
+        <div id="cert-screen" class="hidden text-center p-10 cert-border">
+            <h2 class="text-4xl font-bold mb-4">Certificado de Operativo</h2>
+            <p id="cert-name" class="text-2xl mb-4 italic"></p>
+            <p class="mb-8">Ha completado con éxito todas las fases del Proyecto Esqueleto.</p>
+            <button onclick="location.reload()" class="btn-spy px-8">Finalizar Misión</button>
+        </div>
+
+        <!-- Modal Message -->
+        <div id="msg-modal" class="modal hidden">
+            <p id="msg-text" class="text-xl mb-6 text-center"></p>
+            <button id="modal-btn" onclick="hideModal()" class="btn-spy w-full">Continuar</button>
+        </div>
+    </div>
+
+    <script>
+        const data = [
+            { id: 'skull', q: '¿Qué hueso protege el cerebro?', opts: ['Cráneo', 'Pelvis', 'Fémur'], ans: 0, hint: 'Es el cofre de las ideas.', quote: 'La simplicidad es la máxima sofisticación.' },
+            { id: 'clavicle', q: '¿Autor de "El nacimiento de Venus"?', opts: ['Botticelli', 'Tiziano', 'Giotto'], ans: 0, hint: 'Pintor renacentista.', quote: 'El arte jamás se termina, solo se abandona.' },
+            { id: 'ribs', q: '¿Qué protegen las costillas?', opts: ['Corazón', 'Cerebro', 'Fémur'], ans: 0, hint: 'El motor vital.', quote: 'Aprende a cómo ver.' },
+            { id: 'spine', q: '¿Quién pintó "El juicio final"?', opts: ['Miguel Ángel', 'Rafael', 'Donatello'], ans: 0, hint: 'Maestro de la Capilla Sixtina.', quote: 'La naturaleza nunca rompe sus leyes.' },
+            { id: 'pelvis', q: '¿Qué técnica es el Sfumato?', opts: ['Difuminado', 'Escultura', 'Grabado'], ans: 0, hint: 'Leonardo lo perfeccionó.', quote: 'El tiempo se queda muy largo para quien piensa.' },
+            { id: 'skull', q: '¿Qué escultor creó el David?', opts: ['Miguel Ángel', 'Bernini', 'Rodin'], ans: 0, hint: 'Maestro del mármol.', quote: 'El peligro mayor no es fallar.' },
+            { id: 'clavicle', q: '¿Cuál es la función del fémur?', opts: ['Soporte', 'Respiración', 'Digestión'], ans: 0, hint: 'Hueso del muslo.', quote: 'La sabiduría es hija de la experiencia.' },
+            { id: 'ribs', q: '¿Quién pintó la última cena?', opts: ['Leonardo', 'Vinci', 'Boticelli'], ans: 0, hint: 'El genio polímata.', quote: 'La paciencia es el antídoto contra la injuria.' },
+            { id: 'spine', q: '¿Cuántas vértebras lumbares hay?', opts: ['5', '7', '12'], ans: 0, hint: 'Más de 3, menos de 6.', quote: 'Donde hay gritos, no hay conocimiento.' },
+            { id: 'pelvis', q: '¿Qué es el claroscuro?', opts: ['Contraste', 'Escultura', 'Relieve'], ans: 0, hint: 'Juego de luces y sombras.', quote: 'La belleza desaparece en el tiempo.' }
+        ];
+
+        let state = { diff: 'Fácil', char: 'Alfa', ability: 'Analista', lives: 5, lupas: 0, current: 0, unlocked: 0, agent: '', musicPlaying: false };
+        let synth;
+
+        function updateSel(key, val, btn) {
+            state[key] = val;
+            btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+        }
+
+        // --- SISTEMA DE AUDIO ---
+        async function initAudio() {
+            if(synth) return;
+            await Tone.start();
+            synth = new Tone.PolySynth(Tone.Synth).toDestination();
+            synth.set({ envelope: { attack: 2.0, release: 4.0 }, volume: -15 });
+            
+            // Loop más pausado y ambiental
+            new Tone.Loop((time) => {
+                synth.triggerAttackRelease(["C3", "G3", "E4"], "1n", time);
+                synth.triggerAttackRelease(["A2", "E3", "C4"], "1n", time + 2);
+            }, "4n").start(0);
+        }
+
+        function toggleMusic() {
+            if(!synth) initAudio();
+            if(Tone.Transport.state === 'started') {
+                Tone.Transport.pause();
+                state.musicPlaying = false;
+                document.getElementById('music-toggle').textContent = "Música: OFF";
+            } else {
+                Tone.Transport.start();
+                state.musicPlaying = true;
+                document.getElementById('music-toggle').textContent = "Música: ON";
+            }
+        }
+
+        function showModal(t, callback) {
+            const m = document.getElementById('msg-modal');
+            m.classList.remove('hidden');
+            document.getElementById('msg-text').textContent = t;
+            const b = document.getElementById('modal-btn');
+            b.onclick = () => { hideModal(); if(callback) callback(); };
+        }
+        function hideModal() { document.getElementById('msg-modal').classList.add('hidden'); }
+
+        function startGame() {
+            state.agent = document.getElementById('agent-name').value || 'Agente X';
+            if(state.diff === 'Medio') state.lives = 3;
+            else if(state.diff === 'Difícil') state.lives = 1;
+            else state.lives = 5;
+
+            if(state.ability === 'Analista') state.lupas = 3;
+            if(state.ability === 'Veterano') state.lives += 2;
+            
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('level-screen').classList.remove('hidden');
+            renderLevels();
+        }
+
+        function renderLevels() {
+            const grid = document.getElementById('level-grid');
+            grid.innerHTML = '';
+            for(let i = 0; i < data.length; i++) {
+                const b = document.createElement('button');
+                b.className = 'btn-spy ' + (i > state.unlocked ? 'disabled' : '');
+                b.disabled = i > state.unlocked;
+                b.textContent = i + 1;
+                b.onclick = () => { state.current = i; enterLevel(); };
+                grid.appendChild(b);
+            }
+        }
+
+        function enterLevel() {
+            document.getElementById('level-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+            renderLevel();
+        }
+
+        function renderLevel() {
+            const item = data[state.current];
+            document.getElementById('question-text').textContent = item.q;
+            document.getElementById('quote-box').textContent = '"' + item.quote + '"';
+            document.getElementById('status').textContent = `Vidas: ${'◈'.repeat(state.lives)} | Nivel: ${state.current + 1}`;
+            document.getElementById('lupas').textContent = `Lupas: ${state.lupas}`;
+            
+            const grid = document.getElementById('options-grid');
+            grid.innerHTML = '';
+            item.opts.forEach((o, i) => {
+                const b = document.createElement('button');
+                b.className = 'btn-spy w-full text-left';
+                b.textContent = o;
+                b.onclick = () => check(i === item.ans);
+                grid.appendChild(b);
+            });
+        }
+
+        function check(isCorrect) {
+            if(isCorrect) {
+                document.getElementById('path-' + data[state.current].id).classList.add('revealed');
+                state.unlocked = Math.max(state.unlocked, state.current + 1);
+                
+                if(state.unlocked >= data.length) {
+                    document.getElementById('game-screen').classList.add('hidden');
+                    document.getElementById('cert-screen').classList.remove('hidden');
+                    document.getElementById('cert-name').textContent = state.agent;
+                } else {
+                    showModal('¡Nivel Completado!', () => {
+                        document.getElementById('game-screen').classList.add('hidden');
+                        document.getElementById('level-screen').classList.remove('hidden');
+                        renderLevels();
+                    });
+                }
+            } else {
+                state.lives--;
+                if(state.lives <= 0) { 
+                    showModal('Misión Fallida. Reiniciando...', () => location.reload()); 
+                } else {
+                    showModal('Error. Pista: ' + data[state.current].hint);
+                    renderLevel();
+                }
+            }
+        }
+
+        document.getElementById('btn-hint').onclick = () => {
+            if(state.ability === 'Erudito' || state.lupas > 0) {
+                if(state.ability !== 'Erudito') state.lupas--;
+                showModal('Pista: ' + data[state.current].hint);
+                renderLevel();
+            } else showModal('Requiere Lupa. No tienes suficientes recursos.');
+        }
+    </script>
+</body>
+</html>
